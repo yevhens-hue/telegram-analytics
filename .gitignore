@@ -1,0 +1,43 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Data files
+*.json
+!tapps_data.json
+!dashboard/package.json
+!dashboard/tsconfig.json
+!dashboard/package-lock.json
+!dashboard/next.config.ts
+!dashboard/postcss.config.mjs
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Next.js
+dashboard/.next/
+dashboard/out/
+dashboard/node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# HTML dumps
+*.html
