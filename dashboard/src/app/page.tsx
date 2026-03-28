@@ -32,8 +32,8 @@ function computeTrend(current: number, previous: number): string {
 }
 
 export default async function Dashboard() {
-  const apps = getTopApps() as AppData[];
-  const trend = getRevenueTrend() as TrendData[];
+  const apps = (await getTopApps()) as unknown as AppData[];
+  const trend = (await getRevenueTrend()) as unknown as TrendData[];
 
   const latestStats = trend[trend.length - 1] || { total_ton: 0, total_dau: 0 };
   const prevStats = trend.length >= 2 ? trend[trend.length - 2] : { total_ton: 0, total_dau: 0 };

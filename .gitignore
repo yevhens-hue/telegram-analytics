@@ -15,7 +15,6 @@ build/
 
 # Data files
 *.json
-!tapps_data.json
 !dashboard/package.json
 !dashboard/tsconfig.json
 !dashboard/package-lock.json
@@ -25,6 +24,7 @@ build/
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 .DS_Store
