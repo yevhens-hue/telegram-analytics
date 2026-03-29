@@ -3,16 +3,30 @@ import os
 import time
 import logging
 from db_utils import init_all_tables, save_ton_metrics
+from config import CONFIG
 
 logger = logging.getLogger(__name__)
 
 TONAPI_URL = "https://tonapi.io/v2"
 TONAPI_KEY = os.environ.get("TONAPI_KEY", "")
 
-APP_CONTRACTS = {
-    "Catizen": "EQAnbLTnSI6rwqmvKwWge2rWpkG24cDTS0l5D1blnaiMDdME",
-    "Notcoin": "EQDs6p5X2VfOPhQEqSrkpSrkpSrkpSrkpSrkpSrkpSrkyP6A",
-}
+MAX_RETRIES = 3
+RETRY_BACKOFF = 2
+
+
+def _request_with_retry(url, headers, timeout=15):
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(url, headers=headers, timeout=timeout)
+            return response
+        except requests.exceptions.RequestException as e:
+            if attempt < MAX_RETRIES - 1:
+                wait = RETRY_BACKOFF ** attempt
+                logger.warning("Повтор запроса через %ds (попытка %d/%d): %s", wait, attempt + 1, MAX_RETRIES, e)
+                time.sleep(wait)
+            else:
+                raise
+    return None
 
 
 def analyze_revenue(address: str):
@@ -39,7 +53,7 @@ def analyze_revenue(address: str):
             url += f"&before_lt={before_lt}"
 
         try:
-            response = requests.get(url, headers=headers, timeout=15)
+            response = _request_with_retry(url, headers)
             if response.status_code != 200:
                 logger.error("TonAPI ошибка %d: %s", response.status_code, response.text[:200])
                 break
@@ -74,16 +88,22 @@ def analyze_revenue(address: str):
     return total_inflow / 1e9, len(unique_senders)
 
 
-if __name__ == "__main__":
+def run_indexing():
     init_all_tables()
 
     if not TONAPI_KEY:
-        logger.warning("TONAPI_KEY не задан. Используется бесплатный тариф с ограничениями. Задайте переменную окружения TONAPI_KEY.")
+        logger.warning("TONAPI_KEY не задан. Используется бесплатный тариф с ограничениями.")
 
-    for app_name, address in APP_CONTRACTS.items():
+    contracts = CONFIG.get("ton_contracts", {})
+
+    for app_name, address in contracts.items():
         logger.info("Обработка %s...", app_name)
         revenue, dau = analyze_revenue(address)
         logger.info("  -> Результат: %.2f TON | %d DAU", revenue, dau)
         save_ton_metrics(app_name, address, revenue, dau)
 
     logger.info("Индексация метрик завершена.")
+
+
+if __name__ == "__main__":
+    run_indexing()

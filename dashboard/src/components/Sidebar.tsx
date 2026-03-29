@@ -1,21 +1,52 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { LayoutDashboard, TrendingUp, BarChart3, Settings, Shield, Zap, Info } from "lucide-react";
 import { motion } from "framer-motion";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Overview", active: true },
-  { icon: TrendingUp, label: "Top Charts" },
-  { icon: BarChart3, label: "Market Depth" },
-  { icon: Shield, label: "TON Indexer" },
+interface MenuItem {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  href: string;
+  isComingSoon?: boolean;
+}
+
+const menuItems: MenuItem[] = [
+  { icon: LayoutDashboard, label: "Overview", href: "/" },
+  { icon: TrendingUp, label: "Top Charts", href: "/top-charts" },
+  { icon: BarChart3, label: "Market Depth", href: "/market-depth", isComingSoon: true },
+  { icon: Shield, label: "TON Indexer", href: "/ton-indexer" },
 ];
 
-const secondaryItems = [
-  { icon: Settings, label: "Settings" },
-  { icon: Info, label: "Documentation" },
+const secondaryItems: MenuItem[] = [
+  { icon: Settings, label: "Settings", href: "/settings", isComingSoon: true },
+  { icon: Info, label: "Documentation", href: "/docs", isComingSoon: true },
 ];
+
+function NavItem({ item, pathname }: { item: MenuItem; pathname: string }) {
+  const isActive = pathname === item.href;
+
+  const className = `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${
+    isActive
+      ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.05)]"
+      : "text-slate-400 hover:text-white hover:bg-slate-800/40"
+  }`;
+
+  return (
+    <Link href={item.href} className={className}>
+      <item.icon className="w-5 h-5" />
+      <span className="text-sm font-medium">{item.label}</span>
+      {item.isComingSoon && (
+        <span className="ml-auto text-[8px] font-bold text-slate-600 uppercase tracking-widest">Soon</span>
+      )}
+    </Link>
+  );
+}
 
 export default function Sidebar() {
+  const pathname = usePathname();
+
   return (
     <div className="w-64 border-r border-slate-800/50 bg-[#02040a] flex flex-col h-full sticky top-0">
       <div className="p-8 pb-4 flex items-center gap-3">
@@ -28,30 +59,16 @@ export default function Sidebar() {
       <nav className="flex-1 px-4 py-8 space-y-1">
         <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 mb-3">Main Menu</div>
         {menuItems.map((item, idx) => (
-          <motion.button
-            key={idx}
-            whileHover={{ x: 4 }}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all ${
-              item.active 
-                ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.05)]" 
-                : "text-slate-400 hover:text-white hover:bg-slate-800/40"
-            }`}
-          >
-            <item.icon className="w-5 h-5" />
-            <span className="text-sm font-medium">{item.label}</span>
-          </motion.button>
+          <motion.div key={idx} whileHover={{ x: 4 }}>
+            <NavItem item={item} pathname={pathname} />
+          </motion.div>
         ))}
 
         <div className="pt-8 mb-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4">System</div>
         {secondaryItems.map((item, idx) => (
-          <motion.button
-            key={idx}
-            whileHover={{ x: 4 }}
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/40 transition-all"
-          >
-            <item.icon className="w-5 h-5" />
-            <span className="text-sm font-medium">{item.label}</span>
-          </motion.button>
+          <motion.div key={idx} whileHover={{ x: 4 }}>
+            <NavItem item={item} pathname={pathname} />
+          </motion.div>
         ))}
       </nav>
 

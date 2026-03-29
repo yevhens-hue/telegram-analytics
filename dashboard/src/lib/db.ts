@@ -88,3 +88,56 @@ export async function getRevenueTrend() {
     return [];
   }
 }
+
+export async function getMarketDepth() {
+  try {
+    if (isProduction) {
+      const { sql } = await import('@vercel/postgres');
+      const { rows } = await sql`
+        SELECT app_name, platform, estimated_budget, status, date
+        FROM ad_campaigns
+        WHERE date = (SELECT MAX(date) FROM ad_campaigns)
+        ORDER BY estimated_budget DESC
+        LIMIT 50
+      `;
+      return rows;
+    }
+    return getSqlite().prepare(`
+      SELECT app_name, platform, estimated_budget, status, date
+      FROM ad_campaigns
+      WHERE date = (SELECT MAX(date) FROM ad_campaigns)
+      ORDER BY estimated_budget DESC
+      LIMIT 50
+    `).all();
+  } catch (e) {
+    console.error('getMarketDepth failed:', e);
+    return [];
+  }
+}
+
+export async function getSocialStats() {
+  try {
+    if (isProduction) {
+      const { sql } = await import('@vercel/postgres');
+      const { rows } = await sql`
+        SELECT app_name, handle, subscribers, avg_views, err, date
+        FROM channel_stats
+        WHERE date = (SELECT MAX(date) FROM channel_stats)
+        ORDER BY subscribers DESC
+        LIMIT 50
+      `;
+      return rows;
+    }
+    return getSqlite().prepare(`
+      SELECT app_name, handle, subscribers, avg_views, err, date
+      FROM channel_stats
+      WHERE date = (SELECT MAX(date) FROM channel_stats)
+      ORDER BY subscribers DESC
+      LIMIT 50
+    `).all();
+  } catch (e) {
+    console.error('getSocialStats failed:', e);
+    return [];
+  }
+}
+

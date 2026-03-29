@@ -9,10 +9,20 @@ logger = logging.getLogger(__name__)
 
 async def scrape_tapps_center():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        try:
+            browser = await p.chromium.launch(headless=True)
+        except Exception as e:
+            logger.error("Не удалось запустить браузер: %s", e)
+            return []
+
         page = await browser.new_page()
         logger.info("Переход на tapps.center...")
-        await page.goto("https://tapps.center/", wait_until="networkidle")
+        try:
+            await page.goto("https://tapps.center/", wait_until="networkidle", timeout=30000)
+        except Exception as e:
+            logger.error("Ошибка загрузки страницы: %s", e)
+            await browser.close()
+            return []
 
         try:
             await page.wait_for_selector("[class*='applicationCard']", timeout=10000)

@@ -4,15 +4,26 @@ import re
 import logging
 import time
 from db_utils import init_all_tables, save_channel_stats
+from config import CONFIG
 
 logger = logging.getLogger(__name__)
 
-CHANNELS = {
-    "Catizen": "CatizenAnn",
-    "Notcoin": "notcoin",
-    "Hamster Kombat": "hamster_kombat",
-    "Blum": "blumcrypto",
-}
+MAX_RETRIES = 3
+RETRY_BACKOFF = 2
+
+
+def _request_with_retry(url, timeout=10):
+    for attempt in range(MAX_RETRIES):
+        try:
+            return requests.get(url, timeout=timeout)
+        except requests.exceptions.RequestException as e:
+            if attempt < MAX_RETRIES - 1:
+                wait = RETRY_BACKOFF ** attempt
+                logger.warning("Повтор запроса через %ds (попытка %d/%d): %s", wait, attempt + 1, MAX_RETRIES, e)
+                time.sleep(wait)
+            else:
+                raise
+    return None
 
 
 def parse_views_count(view_str: str) -> int:
@@ -47,7 +58,7 @@ def scrape_channel(handle: str):
     err = 0
 
     try:
-        response = requests.get(url, timeout=10)
+        response = _request_with_retry(url)
         if response.status_code != 200:
             logger.error("HTTP %d для %s", response.status_code, handle)
             return None
@@ -85,9 +96,11 @@ def scrape_channel(handle: str):
         return None
 
 
-if __name__ == "__main__":
+def monitor_channels():
     init_all_tables()
-    for app, handle in CHANNELS.items():
+    channels = CONFIG.get("tg_channels", {})
+
+    for app, handle in channels.items():
         data = scrape_channel(handle)
         if data:
             subs, avg_views, engagement_rate = data
@@ -95,3 +108,7 @@ if __name__ == "__main__":
             save_channel_stats(app, handle, subs, avg_views, engagement_rate)
         time.sleep(1)
     logger.info("Мониторинг каналов завершён.")
+
+
+if __name__ == "__main__":
+    monitor_channels()

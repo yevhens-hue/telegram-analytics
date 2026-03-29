@@ -2,7 +2,7 @@ import requests
 import os
 import logging
 from datetime import datetime
-from db_utils import get_connection
+from db_utils import get_connection, get_placeholder
 
 logger = logging.getLogger(__name__)
 
@@ -12,14 +12,15 @@ CHAT_ID = os.environ.get("TG_CHAT_ID")
 
 def get_alpha_signals():
     today = datetime.now().strftime("%Y-%m-%d")
+    p = get_placeholder()
 
     with get_connection() as conn:
         c = conn.cursor()
         c.execute(
-            """
+            f"""
             SELECT app_name, growth, trend_score, organic_index, prediction_7d, market_sentiment
             FROM app_analytics
-            WHERE date = ? AND trend_score > 5
+            WHERE date = {p} AND trend_score > 5
             ORDER BY trend_score DESC
             LIMIT 5
             """,
@@ -32,12 +33,12 @@ def format_alert(signal):
     name, growth, trend, organic, pred, sentiment = signal
     emoji = "🚀" if growth > 5 else "🔥"
 
-    msg = f"{emoji} *ALPHA ALERT: {name}*\n"
-    msg += f"📈 Growth: +{growth} positions\n"
-    msg += f"📊 Trend Score: {trend:.1f}\n"
-    msg += f"🧠 AI Projection: Reach #{pred} in 7d\n"
-    msg += f"💡 Organic Confidence: {organic:.0f}%\n"
-    msg += f"🎭 Market Sentiment: {sentiment:.0f}/100\n"
+    msg = f"{emoji} *{name}*\n"
+    msg += f"📈 Growth: +{growth} | "
+    msg += f"📊 Trend: {trend:.1f} | "
+    msg += f"🧠 7D: #{pred} | "
+    msg += f"💡 Organic: {organic:.0f}% | "
+    msg += f"🎭 Sentiment: {sentiment:.0f}/100"
     return msg
 
 
@@ -48,18 +49,40 @@ def run_alerts():
         return
 
     logger.info("Обнаружено %d альфа-сигналов.", len(signals))
-    for sig in signals:
-        text = format_alert(sig)
-        logger.info("---\n%s", text)
 
-        if BOT_TOKEN and CHAT_ID:
-            try:
-                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-                resp = requests.post(url, json={"chat_id": CHAT_ID, "text": text, "parse_mode": "Markdown"}, timeout=10)
-                if resp.status_code != 200:
-                    logger.error("Ошибка отправки в Telegram: %d", resp.status_code)
-            except requests.exceptions.RequestException as e:
-                logger.error("Ошибка запроса к Telegram API: %s", e)
+    if not BOT_TOKEN or not CHAT_ID:
+        for sig in signals:
+            text = format_alert(sig)
+            logger.info("---\n%s", text)
+        logger.info("TG_BOT_TOKEN/TG_CHAT_ID не заданы, отправка пропущена.")
+        return
+
+    header = f"🚨 *ALPHA ALERTS* — {len(signals)} сигнал{'ов' if len(signals) > 1 else ''}\n\n"
+    body = "\n\n".join(format_alert(sig) for sig in signals)
+    full_message = header + body
+
+    if len(full_message) > 4000:
+        for sig in signals:
+            text = format_alert(sig)
+            logger.info("---\n%s", text)
+            _send_telegram(text)
+    else:
+        logger.info("---\n%s", full_message)
+        _send_telegram(full_message)
+
+
+def _send_telegram(text):
+    try:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        resp = requests.post(
+            url,
+            json={"chat_id": CHAT_ID, "text": text, "parse_mode": "Markdown"},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            logger.error("Ошибка отправки в Telegram: %d", resp.status_code)
+    except requests.exceptions.RequestException as e:
+        logger.error("Ошибка запроса к Telegram API: %s", e)
 
 
 if __name__ == "__main__":

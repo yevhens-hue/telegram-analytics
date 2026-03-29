@@ -46,6 +46,16 @@ interface StatCardProps {
   delay?: number;
 }
 
+function getTrendStyle(trend: string): string {
+  if (trend.startsWith('+')) {
+    return "flex items-center text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full uppercase tracking-wider";
+  }
+  if (trend.startsWith('-')) {
+    return "flex items-center text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-1 rounded-full uppercase tracking-wider";
+  }
+  return "flex items-center text-[10px] font-bold text-slate-400 bg-slate-400/10 px-2 py-1 rounded-full uppercase tracking-wider";
+}
+
 export default function StatCard({ label, value, trend, iconName, color, delay = 0 }: StatCardProps) {
   const Icon = iconMap[iconName] || Activity;
   const colors = colorMap[color] || colorMap.indigo;
@@ -64,7 +74,7 @@ export default function StatCard({ label, value, trend, iconName, color, delay =
           <Icon className={`w-6 h-6 ${colors.icon}`} />
         </div>
         {trend && (
-          <span className="flex items-center text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded-full uppercase tracking-wider">
+          <span className={getTrendStyle(trend)}>
             {trend}
           </span>
         )}
