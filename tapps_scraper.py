@@ -7,6 +7,21 @@ from db_utils import init_all_tables, save_position_history
 logger = logging.getLogger(__name__)
 
 
+
+
+CATEGORIES = [
+    "trending",
+    "games",
+    "socialandlifestyle",
+    "payments",
+    "finance",
+    "nft",
+    "tools",
+    "playtoearn",
+    "other",
+    "new"
+]
+
 async def scrape_tapps_center():
     async with async_playwright() as p:
         try:
@@ -16,61 +31,72 @@ async def scrape_tapps_center():
             return []
 
         page = await browser.new_page()
-        logger.info("Переход на tapps.center...")
-        try:
-            await page.goto("https://tapps.center/", wait_until="networkidle", timeout=30000)
-        except Exception as e:
-            logger.error("Ошибка загрузки страницы: %s", e)
-            await browser.close()
-            return []
+        all_apps = []
+        seen_apps = set()
 
-        try:
-            await page.wait_for_selector("[class*='applicationCard']", timeout=10000)
-        except Exception as e:
-            logger.warning("Селектор не найден, пробуем альтернативный подход. Ошибка: %s", e)
+        # Build URLs
+        urls_to_visit = [f"https://tapps.center/{cat}" for cat in CATEGORIES]
 
-        for _ in range(3):
-            await page.keyboard.press("PageDown")
-            await asyncio.sleep(1)
 
-        apps_data = await page.evaluate("""() => {
-            const apps = [];
 
-            // Стратегия 1: ищем по частичному совпадению класса (устойчивее к хешам)
-            let cards = document.querySelectorAll('[class*="applicationCardLink"]');
-            if (!cards.length) {
-                // Стратегия 2: ищем ссылки на /app/
-                cards = document.querySelectorAll('a[href*="/app/"]');
-            }
-            if (!cards.length) {
-                // Стратегия 3: ищем карточки по структуре
-                cards = document.querySelectorAll('[class*="applicationCard"]');
-            }
 
-            cards.forEach((card, index) => {
-                // Гибкий поиск имени приложения
-                const nameEl = card.querySelector('[class*="title"]')
-                    || card.querySelector('h3')
-                    || card.querySelector('h2')
-                    || card.querySelector('[class*="name"]');
-                const descEl = card.querySelector('[class*="description"]')
-                    || card.querySelector('[class*="desc"]')
-                    || card.querySelector('p');
+        for url in urls_to_visit:
+            logger.info("Парсинг %s...", url)
+            try:
+                await page.goto(url, wait_until="networkidle", timeout=30000)
+                
+                # Scroll to load more
+                for _ in range(5):
+                    await page.keyboard.press("PageDown")
+                    await asyncio.sleep(1)
 
-                if (nameEl) {
-                    apps.push({
-                        name: nameEl.textContent.trim(),
-                        description: descEl ? descEl.textContent.trim() : "",
-                        category: "Trending",
-                        position: index + 1
+                apps_on_page = await page.evaluate("""() => {
+                    const apps = [];
+                    // Handle both Trending (hompage) and Category page structures
+                    // Category pages use div.styles_applicationCardLink__...
+                    // Some might use a tags. Let's be generic.
+                    
+                    const cards = Array.from(document.querySelectorAll('div[class*="applicationCardLink"], a[href*="/app/"], a[href*="/application/"]'));
+                    
+                    cards.forEach((card) => {
+                        let name = "";
+                        const titleEl = card.querySelector('[class*="title"]') || card.querySelector('h3') || card.querySelector('h2');
+                        if (titleEl) {
+                            name = titleEl.innerText.trim();
+                        } else {
+                            // Fallback to card text
+                            name = card.innerText.split('\\n')[0].trim();
+                        }
+                        
+                        if (name && name.length > 1 && name.length < 100 && name !== 'OPEN') {
+                            const descEl = card.querySelector('[class*="description"]') || card.querySelector('p');
+                            apps.push({
+                                name: name,
+                                description: descEl ? descEl.innerText.trim() : ""
+                            });
+                        }
                     });
-                }
-            });
-            return apps;
-        }""")
+                    return apps;
+                }""")
+                
+                logger.info("  Найдено %d потенциальных приложений на %s", len(apps_on_page), url)
+
+                for app in apps_on_page:
+                    if app['name'] not in seen_apps:
+                        seen_apps.add(app['name'])
+                        all_apps.append({
+                            **app,
+                            "category": "Trending" if url == "https://tapps.center/" else url.split("/")[-1].capitalize(),
+                            "position": len(all_apps) + 1
+                        })
+                
+                logger.info("  Найдено %d новых приложений на %s (всего: %d)", len(apps_on_page), url, len(all_apps))
+
+            except Exception as e:
+                logger.error("Ошибка при парсинге %s: %s", url, e)
 
         await browser.close()
-        return apps_data
+        return all_apps
 
 
 if __name__ == "__main__":

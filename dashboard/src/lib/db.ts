@@ -141,3 +141,95 @@ export async function getSocialStats() {
   }
 }
 
+
+export async function getLatestTonMetrics() {
+  try {
+    if (isProduction) {
+      const { sql } = await import('@vercel/postgres');
+      try {
+          const { rows } = await sql`
+            SELECT price_usd, asset_id, date
+            FROM market_data
+            WHERE asset_id = 'TON'
+            ORDER BY date DESC
+            LIMIT 1
+          `;
+          return rows[0] || { price_usd: 1.23, asset_id: 'TON', date: new Date().toISOString().split('T')[0] };
+      } catch (sqlError) {
+          return { price_usd: 1.23, asset_id: 'TON', date: new Date().toISOString().split('T')[0] };
+      }
+    }
+    const sqlite = getSqlite();
+    const res = sqlite.prepare(`
+      SELECT price_usd, asset_id, date
+      FROM market_data
+      WHERE asset_id = 'TON'
+      ORDER BY date DESC
+      LIMIT 1
+    `).get();
+    return res || { price_usd: 1.23, asset_id: 'TON', date: new Date().toISOString().split('T')[0] };
+  } catch (e) {
+    return { price_usd: 1.23, asset_id: 'TON', date: new Date().toISOString().split('T')[0] };
+  }
+}
+
+export async function getNewsSentiment() {
+  try {
+    if (isProduction) {
+      const { sql } = await import('@vercel/postgres');
+      try {
+          const { rows } = await sql`
+            SELECT app_name, content, sentiment_score, date
+            FROM social_mentions
+            ORDER BY date DESC
+            LIMIT 20
+          `;
+          return rows;
+      } catch (sqlError) {
+          return [];
+      }
+    }
+    return getSqlite().prepare(`
+      SELECT app_name, content, sentiment_score, date
+      FROM social_mentions
+      ORDER BY date DESC
+      LIMIT 20
+    `).all();
+  } catch (e) {
+    return [];
+  }
+}
+
+export async function getLatestAlerts() {
+  try {
+    if (isProduction) {
+      const { sql } = await import('@vercel/postgres');
+      try {
+          const { rows } = await sql`
+            SELECT app_name, message, status as severity, date
+            FROM alert_history
+            ORDER BY date DESC
+            LIMIT 20
+          `;
+          return rows.map((r: any) => ({
+            ...r,
+            severity: (r.severity && r.severity.includes(':')) ? r.severity.split(':')[1] : 'medium'
+          }));
+      } catch (sqlError) {
+          return [];
+      }
+    }
+    const rows = getSqlite().prepare(`
+      SELECT app_name, message, status as severity, date
+      FROM alert_history
+      ORDER BY date DESC
+      LIMIT 20
+    `).all();
+    return rows.map((r: any) => ({
+        ...r,
+        severity: (r.severity && (r.severity as string).includes(':')) ? (r.severity as string).split(':')[1] : 'medium'
+      }));
+  } catch (e) {
+    return [];
+  }
+}
