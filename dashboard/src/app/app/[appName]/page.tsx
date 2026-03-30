@@ -2,8 +2,9 @@ import { getAppDetail } from '@/lib/db';
 import AppDetailClient from '@/components/AppDetailClient';
 import { notFound } from 'next/navigation';
 
-export default async function AppDetailPage({ params }: { params: { appName: string } }) {
-  const decodedName = decodeURIComponent(params.appName);
+export default async function AppDetailPage({ params }: { params: Promise<{ appName: string }> }) {
+  const resolvedParams = await params;
+  const decodedName = decodeURIComponent(resolvedParams.appName);
   console.log("Fetching details for:", decodedName);
   
   const data = await getAppDetail(decodedName);

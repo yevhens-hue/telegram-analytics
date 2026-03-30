@@ -1,4 +1,4 @@
-
+import Link from 'next/link';
 import { getTopApps, getRevenueTrend, getLatestTonMetrics, getNewsSentiment, getLatestAlerts } from '@/lib/db';
 
 import TrendChart from '@/components/TrendChart';
@@ -133,7 +133,7 @@ export default async function Dashboard() {
 
             <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide pt-4">
               {apps.slice(0, 5).map((app, idx) => (
-                <div key={idx} className="min-w-[220px] glass p-5 rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group">
+                <Link href={`/app/${encodeURIComponent(app.app_name)}`} key={idx} className="min-w-[220px] glass p-5 rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-all cursor-pointer group block">
                   <div className="flex items-center justify-between mb-4">
                     <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                       {app.app_name[0]}
@@ -146,7 +146,7 @@ export default async function Dashboard() {
                     <span className="text-xs font-bold text-indigo-400">{Math.round(app.daily_revenue_ton).toLocaleString()} TON</span>
                     <span className="text-[10px] font-bold text-emerald-500">+{app.growth}</span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
