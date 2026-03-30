@@ -1,43 +1,19 @@
 
 import { getTopApps, getRevenueTrend, getLatestTonMetrics, getNewsSentiment, getLatestAlerts } from '@/lib/db';
-import { THRESHOLDS } from '@/lib/config';
+
 import TrendChart from '@/components/TrendChart';
 import Sidebar from '@/components/Sidebar';
 import StatCard from '@/components/StatCard';
 import NewsSentiment from '@/components/NewsSentiment';
 import SystemAlerts from '@/components/SystemAlerts';
 import Leaderboard from '@/components/Leaderboard';
-import { TrendingUp, Flame } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import type { AppData, TrendData, TonMetrics, NewsItem, Alert } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export function computeTrend(current: number, previous: number): string {
-  if (previous === 0) return current > 0 ? "+New" : "+0%";
-  const pct = ((current - previous) / previous) * 100;
-  const sign = pct >= 0 ? "+" : "";
-  return `${sign}${pct.toFixed(1)}%`;
-}
-
-export function getTrafficLabel(organicIndex: number): { label: string; className: string } {
-  if (organicIndex > THRESHOLDS.viral) {
-    return {
-      label: "Viral",
-      className: "px-2 py-1 bg-emerald-500/10 text-emerald-400 text-[9px] font-bold rounded-lg border border-emerald-500/10 uppercase tracking-widest",
-    };
-  }
-  if (organicIndex > THRESHOLDS.organic) {
-    return {
-      label: "Organic",
-      className: "px-2 py-1 bg-indigo-500/10 text-indigo-400 text-[9px] font-bold rounded-lg border border-indigo-500/10 uppercase tracking-widest",
-    };
-  }
-  return {
-    label: "Paid Growth",
-    className: "px-2 py-1 bg-amber-500/10 text-amber-400 text-[9px] font-bold rounded-lg border border-amber-500/10 uppercase tracking-widest",
-  };
-}
+import { computeTrend } from '@/lib/formatters';
 
 async function fetchDashboardData() {
   try {

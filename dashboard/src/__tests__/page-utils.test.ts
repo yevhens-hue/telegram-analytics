@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeTrend, getTrafficLabel, getSentimentColor } from '../app/page';
+import { computeTrend, getTrafficLabel, getSentimentColor } from '../lib/formatters';
 
 describe('computeTrend', () => {
   it('returns positive trend with + sign', () => {

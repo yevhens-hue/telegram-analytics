@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, Activity, ChevronDown } from 'lucide-react';
-import { getTrafficLabel } from '@/app/page';
+import { getTrafficLabel } from '@/lib/formatters';
 
 interface AppData {
   app_name: string;
