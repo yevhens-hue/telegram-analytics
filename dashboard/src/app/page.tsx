@@ -7,7 +7,7 @@ import StatCard from '@/components/StatCard';
 import NewsSentiment from '@/components/NewsSentiment';
 import SystemAlerts from '@/components/SystemAlerts';
 import Leaderboard from '@/components/Leaderboard';
-import { Flame } from 'lucide-react';
+import { Flame, LayoutDashboard } from 'lucide-react';
 import type { AppData, TrendData, TonMetrics, NewsItem, Alert } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -76,14 +76,33 @@ export default async function Dashboard() {
       <main className="flex-1 overflow-y-auto px-10 py-12 space-y-12 max-w-[1400px] mx-auto">
 
         {/* Top Header */}
-        <div className="flex justify-between items-end">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6 relative z-10">
           <div>
-            <h1 className="text-4xl font-bold font-heading text-white tracking-tight mb-2">Market Overview</h1>
-            <p className="text-slate-500 font-medium italic">Latest insights from Telegram Mini Apps ecosystem</p>
+            <h1 className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white via-indigo-200 to-indigo-500 tracking-tight leading-tight">
+              Ecosystem Overview
+            </h1>
+            <p className="text-slate-400 mt-4 max-w-xl text-sm md:text-base font-medium leading-relaxed">
+              Real-time analytics across <span className="text-indigo-400 font-bold">{apps.length}</span> verified Telegram Mini Apps. Tracking daily active users, revenue streams, and market sentiment.
+            </p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.6)]" />
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">Live Data Tracking</p>
+          
+          <div className="flex items-center gap-3 bg-[#02040a]/80 backdrop-blur-xl border border-white/5 rounded-2xl p-2 px-4 shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" style={{ boxShadow: '0 0 10px rgba(16,185,129,0.5)' }} />
+            <span className="text-[10px] uppercase tracking-widest font-bold text-slate-300">Live Sync</span>
+          </div>
+        </div>
+
+        {/* Categories Scroller */}
+        <div className="mb-12 relative z-10 w-full overflow-hidden">
+          <h3 className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+            <LayoutDashboard className="w-4 h-4" /> Telegram App Categories
+          </h3>
+          <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide py-1">
+            {Array.from(new Set(apps.map(a => a.category).filter(Boolean))).map((cat, i) => (
+              <div key={i} className="whitespace-nowrap px-4 py-2 rounded-xl bg-slate-800/40 text-slate-300 text-[10px] font-bold uppercase tracking-widest border border-white/5 hover:border-indigo-500/30 hover:bg-indigo-500/10 cursor-pointer transition-all">
+                {String(cat)}
+              </div>
+            ))}
           </div>
         </div>
 
