@@ -90,6 +90,7 @@ class TestRunPipeline:
         def track(name):
             def inner(*args, **kwargs):
                 call_order.append(name)
+                return "test report" if name == "reports" else None
             return inner
 
         with patch("main.init_all_tables", side_effect=track("init")):
@@ -100,10 +101,14 @@ class TestRunPipeline:
                         with patch("main.simulate_ad_tracking", side_effect=track("ads")):
                             with patch("main.run_analytics_cycle", side_effect=track("analytics")):
                                 with patch("main.run_alerts", side_effect=track("alerts")):
-                                    with patch("main.json.dump"):
-                                        with patch("builtins.open", MagicMock()):
-                                            asyncio = __import__("asyncio")
-                                            asyncio.run(main.run_pipeline())
+                                    with patch("main.run_rate_alerts", side_effect=track("rate_alerts")):
+                                        with patch("main.run_backtest", side_effect=track("backtest")):
+                                            with patch("main.generate_weekly_report", side_effect=track("reports")):
+                                                with patch("main.fetch_ton_price", side_effect=track("fetch")):
+                                                    with patch("main.json.dump"):
+                                                        with patch("builtins.open", MagicMock()):
+                                                            asyncio = __import__("asyncio")
+                                                            asyncio.run(main.run_pipeline())
 
         assert "init" in call_order
         assert "index" in call_order
@@ -111,6 +116,10 @@ class TestRunPipeline:
         assert "ads" in call_order
         assert "analytics" in call_order
         assert "alerts" in call_order
+        assert "rate_alerts" in call_order
+        assert "fetch" in call_order
+        assert "backtest" in call_order
+        assert "reports" in call_order
 
     def test_exits_on_pipeline_failure(self):
         """Pipeline should exit with code 1 on failure."""
@@ -131,11 +140,15 @@ class TestRunPipeline:
                         with patch("main.simulate_ad_tracking"):
                             with patch("main.run_analytics_cycle"):
                                 with patch("main.run_alerts"):
-                                    mock_file = MagicMock()
-                                    with patch("builtins.open", return_value=mock_file):
-                                        with patch("main.json.dump") as mock_dump:
-                                            import asyncio
-                                            asyncio.run(main.run_pipeline())
+                                    with patch("main.run_rate_alerts"):
+                                        with patch("main.run_backtest"):
+                                            with patch("main.generate_weekly_report"):
+                                                with patch("main.fetch_ton_price"):
+                                                    mock_file = MagicMock()
+                                                    with patch("builtins.open", return_value=mock_file):
+                                                        with patch("main.json.dump") as mock_dump:
+                                                            import asyncio
+                                                            asyncio.run(main.run_pipeline())
 
                                     mock_dump.assert_called_once()
                                     args = mock_dump.call_args

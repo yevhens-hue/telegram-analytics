@@ -13,6 +13,10 @@ from tg_channel_monitor import monitor_channels
 from ads_monitor import simulate_ad_tracking
 from analytics_engine import run_analytics_cycle
 from alert_bot import run_alerts
+from market_data import fetch_ton_price
+from rate_alerts import run_rate_alerts
+from backtesting import run_backtest
+from reports import generate_weekly_report
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -54,29 +58,47 @@ async def run_pipeline():
     logger.info("🚀 Starting Telegram Analytics Pipeline...")
 
     try:
-        logger.info("[0/6] Initializing database schema...")
+        logger.info("[1/10] Initializing database schema...")
         init_all_tables()
 
-        logger.info("[1/6] Scraping TApps Marketplace...")
+        logger.info("[2/10] Fetching current TON market price...")
+        fetch_ton_price()
+
+        logger.info("[3/10] Scraping TApps Marketplace...")
         apps_data = await scrape_tapps_center()
         with open("tapps_data.json", "w", encoding="utf-8") as f:
             json.dump(apps_data, f, ensure_ascii=False, indent=2)
 
-        logger.info("[2-3/6] Indexing TON + Monitoring Social (parallel)...")
+        logger.info("[4/10] Indexing TON + Monitoring Social (parallel)...")
         loop = asyncio.get_event_loop()
         await asyncio.gather(
             loop.run_in_executor(None, run_indexing),
             loop.run_in_executor(None, monitor_channels),
         )
 
-        logger.info("[4/6] Tracking Ad Campaigns...")
+        logger.info("[5/10] Tracking Ad Campaigns...")
         simulate_ad_tracking()
 
-        logger.info("[5/6] Running AI Analytics Engine & Forecasting...")
+        logger.info("[6/10] Running AI Analytics Engine...")
         run_analytics_cycle()
 
-        logger.info("[6/6] Checking for Alpha Alerts...")
+        logger.info("[7/10] Checking for Alpha Alerts...")
         run_alerts()
+
+        logger.info("[8/10] Running Rate-of-Change Alerts...")
+        run_rate_alerts()
+
+        logger.info("[9/10] Running Prediction Backtesting...")
+        run_backtest()
+
+        logger.info("[10/10] Generating Analytics Report...")
+        report = generate_weekly_report()
+        if report:
+            logger.info("\n" + report)
+        else:
+            logger.info("No report generated (insufficient data).")
+
+        logger.info("[10/10] Done.")
 
         logger.info("✅ Pipeline complete. Data updated in analytics.db")
 

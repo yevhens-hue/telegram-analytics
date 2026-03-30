@@ -50,25 +50,25 @@ def run_alerts():
 
     logger.info("Обнаружено %d альфа-сигналов.", len(signals))
 
-    if not BOT_TOKEN or not CHAT_ID:
-        for sig in signals:
-            text = format_alert(sig)
-            logger.info("---\n%s", text)
-        logger.info("TG_BOT_TOKEN/TG_CHAT_ID не заданы, отправка пропущена.")
-        return
+    for sig in signals:
+        text = format_alert(sig)
+        logger.info("---\n%s", text)
+        status = "sent" if (BOT_TOKEN and CHAT_ID) else "logged"
+        
+        if status == "sent":
+             _send_telegram(text)
+             
+        _save_alert_history(sig[0], text, status)
 
-    header = f"🚨 *ALPHA ALERTS* — {len(signals)} сигнал{'ов' if len(signals) > 1 else ''}\n\n"
-    body = "\n\n".join(format_alert(sig) for sig in signals)
-    full_message = header + body
-
-    if len(full_message) > 4000:
-        for sig in signals:
-            text = format_alert(sig)
-            logger.info("---\n%s", text)
-            _send_telegram(text)
-    else:
-        logger.info("---\n%s", full_message)
-        _send_telegram(full_message)
+def _save_alert_history(app_name, message, status):
+    today = datetime.now().strftime("%Y-%m-%d")
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"INSERT INTO alert_history (app_name, message, date, status) VALUES ({p}, {p}, {p}, {p})",
+            (app_name, message, today, status)
+        )
 
 
 def _send_telegram(text):

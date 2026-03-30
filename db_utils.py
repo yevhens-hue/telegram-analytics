@@ -3,7 +3,6 @@ import os
 import logging
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Optional, Any, Union
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +81,16 @@ def init_all_tables():
         """)
 
         c.execute(f"""
+            CREATE TABLE IF NOT EXISTS market_data (
+                id {serial_type},
+                asset_id TEXT,
+                price_usd REAL,
+                date TEXT,
+                UNIQUE(asset_id, date)
+            )
+        """)
+
+        c.execute(f"""
             CREATE TABLE IF NOT EXISTS ad_campaigns (
                 id {serial_type},
                 app_name TEXT,
@@ -145,6 +154,71 @@ def init_all_tables():
             )
         """)
 
+        c.execute(f"""
+            CREATE TABLE IF NOT EXISTS alert_history (
+                id {serial_type},
+                app_name TEXT,
+                message TEXT,
+                date TEXT,
+                status TEXT
+            )
+        """)
+
+        c.execute(f"""
+            CREATE TABLE IF NOT EXISTS social_mentions (
+                id {serial_type},
+                app_name TEXT,
+                platform TEXT,
+                content TEXT,
+                sentiment_score REAL,
+                date TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        c.execute(f"""
+            CREATE TABLE IF NOT EXISTS price_history (
+                id {serial_type},
+                asset_id TEXT,
+                price_usd REAL,
+                timestamp TEXT,
+                granularity TEXT DEFAULT 'daily'
+            )
+        """)
+
+        c.execute(f"""
+            CREATE TABLE IF NOT EXISTS competitor_pairs (
+                id {serial_type},
+                app_a TEXT,
+                app_b TEXT,
+                relationship TEXT DEFAULT 'competitor',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(app_a, app_b)
+            )
+        """)
+
+        c.execute(f"""
+            CREATE TABLE IF NOT EXISTS backtest_results (
+                id {serial_type},
+                run_date TEXT,
+                period_days INTEGER,
+                total_predictions INTEGER,
+                direction_accuracy_pct REAL,
+                avg_position_error REAL,
+                report_json TEXT
+            )
+        """)
+
+        c.execute(f"""
+            CREATE TABLE IF NOT EXISTS user_watchlist (
+                id {serial_type},
+                user_id TEXT DEFAULT 'default',
+                app_name TEXT,
+                added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, app_name)
+            )
+        """)
+
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_position_history_date ON position_history(date)",
             "CREATE INDEX IF NOT EXISTS idx_position_history_app_date ON position_history(app_name, date)",
@@ -157,6 +231,12 @@ def init_all_tables():
             "CREATE INDEX IF NOT EXISTS idx_ad_campaigns_app_date ON ad_campaigns(app_name, date)",
             "CREATE INDEX IF NOT EXISTS idx_analytics_history_app_date ON analytics_history(app_name, date)",
             "CREATE INDEX IF NOT EXISTS idx_analytics_history_metric ON analytics_history(metric_name)",
+            "CREATE INDEX IF NOT EXISTS idx_social_mentions_app_date ON social_mentions(app_name, date)",
+            "CREATE INDEX IF NOT EXISTS idx_social_mentions_platform ON social_mentions(platform)",
+            "CREATE INDEX IF NOT EXISTS idx_price_history_asset ON price_history(asset_id)",
+            "CREATE INDEX IF NOT EXISTS idx_price_history_timestamp ON price_history(timestamp)",
+            "CREATE INDEX IF NOT EXISTS idx_competitor_pairs_apps ON competitor_pairs(app_a, app_b)",
+            "CREATE INDEX IF NOT EXISTS idx_backtest_results_date ON backtest_results(run_date)",
         ]
 
         for idx_sql in indexes:
@@ -325,3 +405,134 @@ def save_analytics_history(app_name, date, metrics, cursor=None):
                 f"INSERT INTO analytics_history (app_name, date, metric_name, metric_value) VALUES ({p}, {p}, {p}, {p})",
                 rows,
             )
+
+
+def save_social_mention(app_name, platform, content, sentiment_score, date=None):
+    if date is None:
+        date = datetime.now().strftime("%Y-%m-%d")
+
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"INSERT INTO social_mentions (app_name, platform, content, sentiment_score, date) VALUES ({p}, {p}, {p}, {p}, {p})",
+            (app_name, platform, content, sentiment_score, date),
+        )
+
+
+def save_price_snapshot(asset_id, price_usd, granularity="daily"):
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"INSERT INTO price_history (asset_id, price_usd, timestamp, granularity) VALUES ({p}, {p}, {p}, {p})",
+            (asset_id, price_usd, now, granularity),
+        )
+
+
+def save_backtest_result(period_days, total_predictions, direction_accuracy_pct, avg_position_error, report_json):
+    today = datetime.now().strftime("%Y-%m-%d")
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"INSERT INTO backtest_results (run_date, period_days, total_predictions, direction_accuracy_pct, avg_position_error, report_json) VALUES ({p}, {p}, {p}, {p}, {p}, {p})",
+            (today, period_days, total_predictions, direction_accuracy_pct, avg_position_error, report_json),
+        )
+
+
+def get_competitors(app_name):
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"SELECT app_b FROM competitor_pairs WHERE app_a = {p} UNION SELECT app_a FROM competitor_pairs WHERE app_b = {p}",
+            (app_name, app_name),
+        )
+        return [row[0] for row in c.fetchall()]
+
+
+def add_competitor_pair(app_a, app_b):
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"INSERT INTO competitor_pairs (app_a, app_b) VALUES ({p}, {p}) ON CONFLICT DO NOTHING",
+            (app_a, app_b),
+        )
+
+
+def add_to_watchlist(app_name, user_id="default"):
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"INSERT OR IGNORE INTO user_watchlist (user_id, app_name) VALUES ({p}, {p})",
+            (user_id, app_name),
+        )
+
+
+def remove_from_watchlist(app_name, user_id="default"):
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"DELETE FROM user_watchlist WHERE user_id = {p} AND app_name = {p}",
+            (user_id, app_name),
+        )
+
+
+def get_watchlist(user_id="default"):
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"SELECT app_name FROM user_watchlist WHERE user_id = {p} ORDER BY added_at DESC",
+            (user_id,),
+        )
+        return [row[0] for row in c.fetchall()]
+
+
+def export_apps_csv(date=None):
+    """Export app_analytics for a given date as CSV string."""
+    if date is None:
+        date = datetime.now().strftime("%Y-%m-%d")
+
+    import io
+    import csv
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"SELECT app_name, position, growth, revenue_ton, dau, organic_index, trend_score, market_sentiment FROM app_analytics WHERE date = {p} ORDER BY position ASC",
+            (date,),
+        )
+        rows = c.fetchall()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["app_name", "position", "growth", "revenue_ton", "dau", "organic_index", "trend_score", "market_sentiment"])
+    writer.writerows(rows)
+    return output.getvalue()
+
+
+def get_wallet_summary(date=None):
+    """Get aggregate DAU and revenue summary across all apps."""
+    if date is None:
+        date = datetime.now().strftime("%Y-%m-%d")
+
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            f"SELECT COUNT(*) as apps, SUM(dau) as total_dau, SUM(revenue_ton) as total_revenue FROM app_analytics WHERE date = {p}",
+            (date,),
+        )
+        row = c.fetchone()
+        return {
+            "date": date,
+            "apps_tracked": row[0] or 0,
+            "total_dau": row[1] or 0,
+            "total_revenue_ton": row[2] or 0.0,
+        }

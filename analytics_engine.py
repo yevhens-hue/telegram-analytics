@@ -1,8 +1,10 @@
 import random as _random_module
 import logging
 from datetime import datetime, timedelta
-from db_utils import init_all_tables, get_connection, get_placeholder, save_analytics_history
+from db_utils import init_all_tables, get_connection, get_placeholder, save_analytics_history, get_competitors
 from config import CONFIG
+from market_data import get_latest_ton_price
+from news_sentiment import analyze_channel_sentiment
 
 logger = logging.getLogger(__name__)
 
@@ -68,13 +70,29 @@ def run_analytics_cycle():
             err_bonus = engagement_rate * 2
             marketing_penalty = ad_spend / 1000
 
+            ton_price = get_latest_ton_price() or 5.0
+            # Using real price for revenue conversion
+            revenue_usd = revenue * ton_price if not is_mock else _mock_rng.uniform(1000, 10000)
+
+            # Factor in competitor performance (SOON -> DONE)
+            competitors = get_competitors(app_name)
+            competitor_bonus = 0
+            if competitors:
+                # Use current position count or compare ranks
+                placeholders = ",".join([p] * len(competitors))
+                c.execute(f"SELECT position FROM position_history WHERE date = {p} AND app_name IN ({placeholders})", (today, *competitors))
+                comp_positions = [row[0] for row in c.fetchall()]
+                if comp_positions:
+                    avg_comp_pos = sum(comp_positions) / len(comp_positions)
+                    competitor_bonus = (avg_comp_pos - pos) * 1.5
+
             base_org = (100 / max(1, pos)) + (growth * 2.5)
-            organic_index = min(100, max(5, base_org + err_bonus - marketing_penalty))
+            organic_index = min(100, max(5, base_org + err_bonus + competitor_bonus - marketing_penalty))
 
-            raw_trend = (growth * 12) + (revenue / 50) + (engagement_rate * 5)
+            sentiment_score = analyze_channel_sentiment(app_name)
+
+            raw_trend = (growth * 12) + (revenue_usd / 200) + (engagement_rate * 5)
             trend_score = _normalize_trend_score(raw_trend)
-
-            sentiment_score = min(100, max(0, (engagement_rate * 8) + (growth * 5) + 50))
 
             projected_rank = max(1, int(pos - (growth * 0.7)))
 

@@ -128,14 +128,14 @@ class TestGetAlphaSignals:
 
 
 class TestRunAlerts:
-    def test_logs_when_no_signals(self, caplog):
+    def test_logs_when_no_signals(self, caplog, db_conn):
         import logging
         with caplog.at_level(logging.INFO, logger="alert_bot"):
             with patch.object(alert_bot, "get_alpha_signals", return_value=[]):
                 alert_bot.run_alerts()
         assert "Нет значимых альфа-сигналов" in caplog.text
 
-    def test_sends_to_telegram_when_configured(self):
+    def test_sends_to_telegram_when_configured(self, db_conn):
         signals = [("TestApp", 10, 150.0, 80.0, 1, 75.0)]
         with patch.object(alert_bot, "get_alpha_signals", return_value=signals):
             with patch("alert_bot.requests.post") as mock_post:
@@ -148,7 +148,7 @@ class TestRunAlerts:
         assert "fake_token" in call_kwargs[0][0]
         assert call_kwargs[1]["json"]["chat_id"] == "fake_chat"
 
-    def test_does_not_send_without_token(self):
+    def test_does_not_send_without_token(self, db_conn):
         signals = [("TestApp", 10, 150.0, 80.0, 1, 75.0)]
         with patch.object(alert_bot, "get_alpha_signals", return_value=signals):
             with patch("alert_bot.requests.post") as mock_post:
@@ -157,3 +157,17 @@ class TestRunAlerts:
                         alert_bot.run_alerts()
 
         mock_post.assert_not_called()
+
+    def test_saves_alert_to_history(self, db_conn):
+        signals = [("HistoryApp", 10, 150.0, 80.0, 1, 75.0)]
+        with patch.object(alert_bot, "get_alpha_signals", return_value=signals):
+            with patch("alert_bot.requests.post"):
+                with patch.object(alert_bot, "BOT_TOKEN", "fake_token"):
+                    with patch.object(alert_bot, "CHAT_ID", "fake_chat"):
+                        alert_bot.run_alerts()
+                        
+        c = db_conn.cursor()
+        c.execute("SELECT app_name FROM alert_history WHERE app_name = 'HistoryApp'")
+        res = c.fetchone()
+        assert res is not None
+        assert res[0] == "HistoryApp"
