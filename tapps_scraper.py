@@ -16,8 +16,32 @@ CATEGORIES = [
     "nft",
     "tools",
     "playtoearn",
+    "utilities",
+    "web3",
+    "social",
+    "business",
+    "shopping",
+    "wallets",
+    "productivity",
+    "education",
+    "news",
+    "entertainment",
+    "photoandvideo",
+    "music",
+    "healthfitness",
+    "gambling",
+    "betting",
+    "casino",
+    "exchanges",
     "other",
-    "new"
+    "new",
+    "sports",
+    "lifestyle",
+    "travel",
+    "foodanddrink",
+    "casual",
+    "simulation",
+    "arcade"
 ]
 
 
@@ -107,7 +131,7 @@ async def scrape_tapps_center():
                     except Exception:
                         break
 
-                await _scroll_to_bottom(page, max_scrolls=20)
+                await _scroll_to_bottom(page, max_scrolls=50)
 
                 apps_on_page = await _extract_apps(page)
                 logger.info("  Найдено %d приложений на %s", len(apps_on_page), url)
