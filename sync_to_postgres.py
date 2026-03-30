@@ -37,20 +37,25 @@ def sync_table(sqlite_conn, pg_conn, table_name):
     # Prepare Postgres insert
     pc = pg_conn.cursor()
     
-    # On conflict handles app_analytics specifically
+    # Use UPSERT for all tables with primary key 'id'
+    placeholders = ", ".join(["%s"] * len(columns))
+    col_str = ", ".join(columns)
+    
     if table_name == "app_analytics":
-        placeholders = ", ".join(["%s"] * len(columns))
-        col_str = ", ".join(columns)
         update_str = ", ".join([f"{c}=EXCLUDED.{c}" for c in columns if c != "id"])
-        
         insert_query = f"""
             INSERT INTO {table_name} ({col_str})
             VALUES ({placeholders})
             ON CONFLICT (app_name, date) DO UPDATE SET {update_str}
         """
+    elif "id" in columns:
+        update_str = ", ".join([f"{c}=EXCLUDED.{c}" for c in columns if c != "id"])
+        insert_query = f"""
+            INSERT INTO {table_name} ({col_str})
+            VALUES ({placeholders})
+            ON CONFLICT (id) DO UPDATE SET {update_str}
+        """
     else:
-        placeholders = ", ".join(["%s"] * len(columns))
-        col_str = ", ".join(columns)
         insert_query = f"INSERT INTO {table_name} ({col_str}) VALUES ({placeholders})"
         
     # Batch insert

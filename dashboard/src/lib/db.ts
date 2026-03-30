@@ -29,7 +29,7 @@ function getSqlite() {
   return _db;
 }
 
-export async function getTopApps() {
+export async function getTopApps(limit = 1000) {
   try {
     if (isProduction) {
       const { sql } = await import('@vercel/postgres');
@@ -43,7 +43,7 @@ export async function getTopApps() {
         WHERE a.date = (SELECT MAX(date) FROM app_analytics)
         GROUP BY a.app_name, p.category, a.date, a.revenue_ton, a.dau, a.growth, a.organic_index, a.trend_score, a.market_sentiment, a.prediction_7d
         ORDER BY position ASC
-        LIMIT 50
+        LIMIT ${limit}
       `;
       return rows;
     }
@@ -57,11 +57,64 @@ export async function getTopApps() {
       WHERE a.date = (SELECT MAX(date) FROM app_analytics)
       GROUP BY a.app_name
       ORDER BY position ASC
-      LIMIT 50
-    `).all();
+      LIMIT ?
+    `).all(limit);
   } catch (e) {
     console.error('getTopApps failed:', e);
     return [];
+  }
+}
+
+export async function getAppDetail(appName: string) {
+  try {
+    if (isProduction) {
+      const { sql } = await import('@vercel/postgres');
+      const [analyticsRes, posHistoryRes, trendRes, tonRes, channelRes] = await Promise.all([
+        sql`SELECT a.*, p.category, p.description
+            FROM app_analytics a
+            LEFT JOIN position_history p ON a.app_name = p.app_name AND a.date = p.date
+            WHERE a.app_name = ${appName}
+            ORDER BY a.date DESC LIMIT 1`,
+        sql`SELECT date, position FROM position_history WHERE app_name = ${appName} ORDER BY date DESC LIMIT 30`,
+        sql`SELECT date, revenue_ton, dau, trend_score, organic_index, market_sentiment FROM app_analytics WHERE app_name = ${appName} ORDER BY date DESC LIMIT 30`,
+        sql`SELECT contract_address, daily_revenue_ton, daily_active_wallets, date FROM ton_metrics WHERE app_id = ${appName} ORDER BY date DESC LIMIT 1`,
+        sql`SELECT handle, subscribers, avg_views, err, date FROM channel_stats WHERE app_name = ${appName} ORDER BY date DESC LIMIT 1`,
+      ]);
+      return {
+        analytics: analyticsRes.rows[0] || null,
+        positionHistory: posHistoryRes.rows,
+        analyticsHistory: trendRes.rows,
+        ton: tonRes.rows[0] || null,
+        channel: channelRes.rows[0] || null,
+      };
+    }
+    const db = getSqlite();
+    const analytics = db.prepare(`
+      SELECT a.*, p.category, p.description
+      FROM app_analytics a
+      LEFT JOIN position_history p ON a.app_name = p.app_name AND a.date = p.date
+      WHERE a.app_name = ?
+      ORDER BY a.date DESC LIMIT 1
+    `).get(appName);
+    const positionHistory = db.prepare(`
+      SELECT date, position FROM position_history WHERE app_name = ? ORDER BY date DESC LIMIT 30
+    `).all(appName);
+    const analyticsHistory = db.prepare(`
+      SELECT date, revenue_ton, dau, trend_score, organic_index, market_sentiment
+      FROM app_analytics WHERE app_name = ? ORDER BY date DESC LIMIT 30
+    `).all(appName);
+    const ton = db.prepare(`
+      SELECT contract_address, daily_revenue_ton, daily_active_wallets, date
+      FROM ton_metrics WHERE app_id = ? ORDER BY date DESC LIMIT 1
+    `).get(appName);
+    const channel = db.prepare(`
+      SELECT handle, subscribers, avg_views, err, date
+      FROM channel_stats WHERE app_name = ? ORDER BY date DESC LIMIT 1
+    `).get(appName);
+    return { analytics, positionHistory, analyticsHistory, ton, channel };
+  } catch (e) {
+    console.error('getAppDetail failed:', e);
+    return { analytics: null, positionHistory: [], analyticsHistory: [], ton: null, channel: null };
   }
 }
 
@@ -141,7 +194,6 @@ export async function getSocialStats() {
   }
 }
 
-
 export async function getLatestTonMetrics() {
   try {
     if (isProduction) {
@@ -155,7 +207,7 @@ export async function getLatestTonMetrics() {
             LIMIT 1
           `;
           return rows[0] || { price_usd: 1.23, asset_id: 'TON', date: new Date().toISOString().split('T')[0] };
-      } catch (sqlError) {
+      } catch {
           return { price_usd: 1.23, asset_id: 'TON', date: new Date().toISOString().split('T')[0] };
       }
     }
@@ -168,7 +220,7 @@ export async function getLatestTonMetrics() {
       LIMIT 1
     `).get();
     return res || { price_usd: 1.23, asset_id: 'TON', date: new Date().toISOString().split('T')[0] };
-  } catch (e) {
+  } catch {
     return { price_usd: 1.23, asset_id: 'TON', date: new Date().toISOString().split('T')[0] };
   }
 }
@@ -185,7 +237,7 @@ export async function getNewsSentiment() {
             LIMIT 20
           `;
           return rows;
-      } catch (sqlError) {
+      } catch {
           return [];
       }
     }
@@ -195,7 +247,7 @@ export async function getNewsSentiment() {
       ORDER BY date DESC
       LIMIT 20
     `).all();
-  } catch (e) {
+  } catch {
     return [];
   }
 }
@@ -215,7 +267,7 @@ export async function getLatestAlerts() {
             ...r,
             severity: (r.severity && r.severity.includes(':')) ? r.severity.split(':')[1] : 'medium'
           }));
-      } catch (sqlError) {
+      } catch {
           return [];
       }
     }
@@ -229,7 +281,7 @@ export async function getLatestAlerts() {
         ...r,
         severity: (r.severity && (r.severity as string).includes(':')) ? (r.severity as string).split(':')[1] : 'medium'
       }));
-  } catch (e) {
+  } catch {
     return [];
   }
 }

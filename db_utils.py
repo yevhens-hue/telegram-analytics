@@ -536,3 +536,65 @@ def get_wallet_summary(date=None):
             "total_dau": row[1] or 0,
             "total_revenue_ton": row[2] or 0.0,
         }
+
+
+def get_app_detail(app_name):
+    """Get full detail for a single app: latest analytics, history, social, ton metrics."""
+    p = get_placeholder()
+    with get_connection() as conn:
+        c = conn.cursor()
+
+        # Latest analytics
+        c.execute(
+            f"""SELECT a.*, p.category, p.description
+            FROM app_analytics a
+            LEFT JOIN position_history p ON a.app_name = p.app_name AND a.date = p.date
+            WHERE a.app_name = {p}
+            ORDER BY a.date DESC LIMIT 1""",
+            (app_name,),
+        )
+        analytics = c.fetchone()
+
+        # Position history (last 30 days)
+        c.execute(
+            f"SELECT date, position FROM position_history WHERE app_name = {p} ORDER BY date DESC LIMIT 30",
+            (app_name,),
+        )
+        position_history = c.fetchall()
+
+        # Revenue trend (last 30 days)
+        c.execute(
+            f"SELECT date, revenue_ton, dau, trend_score, organic_index, market_sentiment FROM app_analytics WHERE app_name = {p} ORDER BY date DESC LIMIT 30",
+            (app_name,),
+        )
+        analytics_history = c.fetchall()
+
+        # TON metrics
+        c.execute(
+            f"SELECT contract_address, daily_revenue_ton, daily_active_wallets, date FROM ton_metrics WHERE app_id = {p} ORDER BY date DESC LIMIT 1",
+            (app_name,),
+        )
+        ton = c.fetchone()
+
+        # Channel stats
+        c.execute(
+            f"SELECT handle, subscribers, avg_views, err, date FROM channel_stats WHERE app_name = {p} ORDER BY date DESC LIMIT 1",
+            (app_name,),
+        )
+        channel = c.fetchone()
+
+        return {
+            "analytics": dict(analytics) if analytics else None,
+            "position_history": [dict(r) for r in position_history],
+            "analytics_history": [dict(r) for r in analytics_history],
+            "ton": dict(ton) if ton else None,
+            "channel": dict(channel) if channel else None,
+        }
+
+
+def get_all_app_names():
+    """Get list of all unique app names from position_history."""
+    with get_connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT DISTINCT app_name FROM position_history ORDER BY app_name")
+        return [row[0] for row in c.fetchall()]

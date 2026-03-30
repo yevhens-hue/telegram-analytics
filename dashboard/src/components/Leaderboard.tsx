@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, Activity, ChevronDown } from 'lucide-react';
 import { getTrafficLabel } from '@/app/page';
@@ -68,7 +69,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ apps }) => {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
-                    className="hover:bg-indigo-500/5 transition-all group"
+                    className="hover:bg-indigo-500/5 transition-all group cursor-pointer"
+                    onClick={() => window.location.href = `/app/${encodeURIComponent(app.app_name)}`}
                   >
                     <td className="px-8 py-6">
                       <div className={`flex items-center justify-center w-8 h-8 rounded-lg text-sm font-bold ${app.position <= 1 ? 'bg-amber-500 text-white shadow-[0_0_15px_rgba(245,158,11,0.4)]' : app.position <= 3 ? 'bg-slate-400 text-slate-900' : 'bg-slate-800/80 text-slate-500'}`}>
@@ -81,7 +83,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ apps }) => {
                           {app.app_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <div className="font-bold text-white group-hover:text-indigo-400 transition-colors">{app.app_name}</div>
+                          <Link href={`/app/${encodeURIComponent(app.app_name)}`} className="font-bold text-white group-hover:text-indigo-400 transition-colors hover:underline">{app.app_name}</Link>
                           <div className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-bold">{app.category}</div>
                         </div>
                       </div>

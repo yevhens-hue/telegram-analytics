@@ -1,5 +1,6 @@
 import { getTopApps } from '@/lib/db';
 import Sidebar from '@/components/Sidebar';
+import Link from 'next/link';
 import { TrendingUp, Activity, Search } from 'lucide-react';
 import * as motion from "framer-motion/client";
 
@@ -103,48 +104,49 @@ export default async function TopCharts({
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sorted.map((app, i) => (
-            <motion.div
-              key={`${app.app_name}-${i}`}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.02, duration: 0.3 }}
-              className="glass-card p-6 rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-all"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${app.position <= 3 ? 'bg-amber-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
-                    {app.position}
+            <Link key={`${app.app_name}-${i}`} href={`/app/${encodeURIComponent(app.app_name)}`}>
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.02, duration: 0.3 }}
+                className="glass-card p-6 rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-all h-full"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${app.position <= 3 ? 'bg-amber-500 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                      {app.position}
+                    </div>
+                    <div>
+                      <div className="font-bold text-white">{app.app_name}</div>
+                      <div className="text-[10px] text-slate-500 uppercase tracking-widest">{app.category}</div>
+                    </div>
+                  </div>
+                  {app.growth > 0 ? (
+                    <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
+                      <TrendingUp className="w-3 h-3" /> +{app.growth}
+                    </div>
+                  ) : app.growth < 0 ? (
+                    <div className="flex items-center gap-1 text-red-400 text-xs font-bold">
+                      <Activity className="w-3 h-3 rotate-180" /> {app.growth}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div>
+                    <div className="text-xs text-slate-500 mb-1">Revenue</div>
+                    <div className="text-sm font-bold text-indigo-400">{Math.round(app.daily_revenue_ton).toLocaleString()} TON</div>
                   </div>
                   <div>
-                    <div className="font-bold text-white">{app.app_name}</div>
-                    <div className="text-[10px] text-slate-500 uppercase tracking-widest">{app.category}</div>
+                    <div className="text-xs text-slate-500 mb-1">DAU</div>
+                    <div className="text-sm font-bold text-blue-400">{app.daily_active_wallets.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-slate-500 mb-1">Trend</div>
+                    <div className="text-sm font-bold text-purple-400">{app.trend_score.toFixed(0)}</div>
                   </div>
                 </div>
-                {app.growth > 0 ? (
-                  <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
-                    <TrendingUp className="w-3 h-3" /> +{app.growth}
-                  </div>
-                ) : app.growth < 0 ? (
-                  <div className="flex items-center gap-1 text-red-400 text-xs font-bold">
-                    <Activity className="w-3 h-3 rotate-180" /> {app.growth}
-                  </div>
-                ) : null}
-              </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Revenue</div>
-                  <div className="text-sm font-bold text-indigo-400">{Math.round(app.daily_revenue_ton).toLocaleString()} TON</div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">DAU</div>
-                  <div className="text-sm font-bold text-blue-400">{app.daily_active_wallets.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 mb-1">Trend</div>
-                  <div className="text-sm font-bold text-purple-400">{app.trend_score.toFixed(0)}</div>
-                </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </Link>
           ))}
         </div>
 
