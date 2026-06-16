@@ -5,25 +5,18 @@ const isProduction = !!process.env.POSTGRES_URL || !!process.env.VERCEL;
 
 function resolveDbPath(): string {
   const envPath = process.env.ANALYTICS_DB;
-  if (envPath && fs.existsSync(envPath)) return envPath;
-
-  const candidates = [
-    path.resolve(process.cwd(), '..', 'analytics.db'),
-    path.resolve(process.cwd(), 'analytics.db'),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-  return path.resolve(process.cwd(), 'analytics.db');
+  if (envPath) return envPath;
+  // Use string concat to avoid webpack NFT tracing issues
+  return process.cwd() + '/analytics.db';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _db: any = null;
 function getSqlite() {
+  if (isProduction) throw new Error("Cannot use sqlite in production");
   if (!_db) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const Database = require('better-sqlite3');
+    // eval prevents Webpack from trying to bundle the native module
+    const Database = eval("require('better-sqlite3')");
     _db = new Database(resolveDbPath(), { readonly: true });
   }
   return _db;
