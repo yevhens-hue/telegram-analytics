@@ -1,18 +1,22 @@
 import sqlite3
 import os
 import psycopg2
+from psycopg2.extras import execute_values
 from dotenv import load_dotenv
 import logging
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 # Load Vercel PostgreSQL configuration from .env.vercel
 if os.path.exists(".env.vercel"):
     load_dotenv(".env.vercel")
 
-POSTGRES_URL = os.environ.get("POSTGRES_URL")
+POSTGRES_URL = os.environ.get("POSTGRES_URL_NON_POOLING") or os.environ.get("POSTGRES_URL")
+if POSTGRES_URL:
+    POSTGRES_URL = POSTGRES_URL.replace("?channel_binding=require&", "?").replace("&channel_binding=require", "").replace("?channel_binding=require", "")
+
 SQLITE_DB = "analytics.db"
 
 if not POSTGRES_URL:
@@ -37,31 +41,34 @@ def sync_table(sqlite_conn, pg_conn, table_name):
     # Prepare Postgres insert
     pc = pg_conn.cursor()
     
-    # Use UPSERT for all tables with primary key 'id'
-    placeholders = ", ".join(["%s"] * len(columns))
     col_str = ", ".join(columns)
     
     if table_name == "app_analytics":
         update_str = ", ".join([f"{c}=EXCLUDED.{c}" for c in columns if c != "id"])
         insert_query = f"""
             INSERT INTO {table_name} ({col_str})
-            VALUES ({placeholders})
+            VALUES %s
             ON CONFLICT (app_name, date) DO UPDATE SET {update_str}
         """
     elif "id" in columns:
         update_str = ", ".join([f"{c}=EXCLUDED.{c}" for c in columns if c != "id"])
         insert_query = f"""
             INSERT INTO {table_name} ({col_str})
-            VALUES ({placeholders})
+            VALUES %s
             ON CONFLICT (id) DO UPDATE SET {update_str}
         """
     else:
-        insert_query = f"INSERT INTO {table_name} ({col_str}) VALUES ({placeholders})"
+        insert_query = f"INSERT INTO {table_name} ({col_str}) VALUES %s"
         
-    # Batch insert
+    # Batch insert using execute_values
     try:
-        pc.executemany(insert_query, rows)
-        pg_conn.commit()
+        batch_size = 1000
+        for i in range(0, len(rows), batch_size):
+            batch = rows[i : i + batch_size]
+            execute_values(pc, insert_query, batch)
+            pg_conn.commit()
+            logger.info(f"  Synced {min(i + batch_size, len(rows))}/{len(rows)} rows into {table_name}")
+        
         logger.info(f"Successfully synced {len(rows)} rows into {table_name}")
     except Exception as e:
         pg_conn.rollback()
@@ -73,6 +80,7 @@ def main():
     db_utils.init_all_tables()
     
     # 2. Connect to both
+    logger.info("Connecting to databases...")
     sqlite_conn = sqlite3.connect(SQLITE_DB)
     pg_conn = psycopg2.connect(POSTGRES_URL)
     
